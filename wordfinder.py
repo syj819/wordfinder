@@ -5,7 +5,7 @@ from tkinter import messagebox, scrolledtext
 
 
 def search_text():
-    keyword = keyword_entry.get()
+    keyword = keyword_entry.get().strip()
 
     if not keyword:
         messagebox.showwarning("提示", "请输入搜索内容")
@@ -13,7 +13,9 @@ def search_text():
 
     result_box.delete(1.0, tk.END)
     keyword_lower = keyword.lower()
-    match_count = 0
+
+    # 用字典按文件分组
+    results = {}
 
     for root, _, files in os.walk(search_root):
         for file in files:
@@ -23,36 +25,41 @@ def search_text():
                 with open(file_path, "r", encoding="utf-8") as f:
                     for line_num, line in enumerate(f, start=1):
                         if keyword_lower in line.lower():
-                            match_count += 1
-                            result_box.insert(
-                                tk.END,
-                                f"[文件] {file_path}\n"
-                                f"[行号] {line_num}\n"
-                                f"[内容] {line.strip()}\n"
-                                + "-" * 60 + "\n"
+                            results.setdefault(file_path, []).append(
+                                (line_num, line.strip())
                             )
             except UnicodeDecodeError:
-                # 非 UTF-8 文件直接跳过
                 continue
             except Exception as e:
-                result_box.insert(tk.END, f"[错误] {file_path}: {e}\n")
+                results.setdefault(file_path, []).append(
+                    ("错误", str(e))
+                )
 
-    if match_count == 0:
+    if not results:
         result_box.insert(tk.END, "未找到匹配内容\n")
-    else:
-        result_box.insert(tk.END, f"\n共找到 {match_count} 处匹配\n")
+        return
+
+    # 按文件输出
+    for file_path, matches in results.items():
+        result_box.insert(tk.END, f"{file_path}\n")
+        for line_num, content in matches:
+            result_box.insert(
+                tk.END,
+                f"  行{line_num:<5} {content}\n"
+            )
+        result_box.insert(tk.END, "-" * 60 + "\n")
 
 
 # ================= 程序入口 =================
 
-# exe / 脚本所在目录
+# exe 所在目录（模式 2）
 search_root = os.path.dirname(os.path.abspath(sys.argv[0]))
 
 root = tk.Tk()
 root.title("文本搜索工具（自动搜索当前目录）")
 root.geometry("900x600")
 
-# 当前搜索目录显示（只读）
+# 当前搜索目录显示
 tk.Label(root, text="当前搜索目录：").pack(anchor="w", padx=10, pady=5)
 tk.Label(root, text=search_root, fg="blue").pack(anchor="w", padx=20)
 
